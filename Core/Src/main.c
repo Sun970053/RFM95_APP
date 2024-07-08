@@ -116,10 +116,10 @@ volatile uint8_t uartFlag = 0, cmdFlag = 0;
  * sf_9_cr48: 2298 ms
  * sf_8_cr48: 2163 ms
  * sf_7_cr48: 2090 ms */
-uint32_t cr_sf_array[4][4] = {{2070, 2134, 2247, 2500},
-							{2077, 2143, 2264, 2530},
-							{2083, 2153, 2281, 2561},
-							{2090, 2163, 2298, 2592}};
+uint32_t cr_sf_array[4][6] = {{2070, 2134, 2247, 2500, 2986, 3974},
+							{2077, 2143, 2264, 2530, 3040, 4172},
+							{2083, 2153, 2281, 2561, 3095, 4269},
+							{2090, 2163, 2298, 2592, 3150, 4367}};
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -278,7 +278,6 @@ int main(void)
 	  printf("Init... success!\r\n");
 	}
 	RFM95_LoRa_setSyncWord(&rfm95, 0x34);
-
 	HAL_Delay(500);
 	/* Initialize the SD card, verify file creation, updating and deletion of file. */
 	SD_init();
@@ -556,6 +555,12 @@ int main(void)
 				  ret = RFM95_LoRa_setSpreadingFactor(&rfm95, sf);
 				  if(ret) printf("ERROR CODE: %d\r\n", ret);
 				  else printf("SF %d is set.\r\n", sf);
+				  if(sf > 10)
+				  {
+					  htim2.Instance->ARR = 5000000-1;
+				  }
+				  else
+					  htim2.Instance->ARR = 3000000-1;
 			  }
 			  else
 			  {
@@ -661,6 +666,48 @@ int main(void)
 			  free_space = (uint32_t)(fre_clust * pfs->csize * 0.5);
 			  printf("SD CARD free space: \t%lu\r\n", free_space);
 
+			  memset(myRxCmd.cmd, '\0', myRxCmd.cmdLen);
+			  myRxCmd.cmdLen = 0;
+			  memset(myRxCmd.param, '\0', myRxCmd.paramLen);
+			  myRxCmd.paramLen = 0;
+			  cmdFlag = 0;
+		  }
+		  else if(strncmp("ldro", (char*)myRxCmd.cmd, myRxCmd.cmdLen) == 0)
+		  {
+			  if(strncmp("on", (char*)myRxCmd.param, myRxCmd.paramLen) == 0)
+			  {
+				  uint8_t ret = RFM95_LoRa_setLowDataRateOpt(&rfm95, true);
+				  if(ret) printf("ERROR CODE: %d\r\n", ret);
+				  else printf("Low Data Rate Opt: %d.\r\n", 1);
+			  }
+			  else if(strncmp("off", (char*)myRxCmd.param, myRxCmd.paramLen) == 0)
+			  {
+				  uint8_t ret = RFM95_LoRa_setLowDataRateOpt(&rfm95, false);
+				  if(ret) printf("ERROR CODE: %d\r\n", ret);
+				  else printf("Low Data Rate Opt: %d.\r\n", 0);
+			  }
+			  else
+			  {
+				  printf("Invalid parameter !\r\n");
+			  }
+			  memset(myRxCmd.cmd, '\0', myRxCmd.cmdLen);
+			  myRxCmd.cmdLen = 0;
+			  memset(myRxCmd.param, '\0', myRxCmd.paramLen);
+			  myRxCmd.paramLen = 0;
+			  cmdFlag = 0;
+		  }
+		  else if(strncmp("init", (char*)myRxCmd.cmd, myRxCmd.cmdLen) == 0)
+		  {
+			  uint8_t ret = RFM95_LoRa_Init(&rfm95);
+			  if(ret != RFM95_OK)
+			  {
+				  printf("Init... fail!\r\n");
+				  printf("Error code: %d\r\n", ret);
+			  }
+			  else
+			  {
+				  printf("Init... success!\r\n");
+			  }
 			  memset(myRxCmd.cmd, '\0', myRxCmd.cmdLen);
 			  myRxCmd.cmdLen = 0;
 			  memset(myRxCmd.param, '\0', myRxCmd.paramLen);
@@ -1085,7 +1132,9 @@ void Cmd_display(void)
 	printf("Set Bandwidth ---------------> bw    [kHz] \r\n");
 	printf("Set Coding Rate -------------> cr    [number] \r\n");
 	printf("Set Frequency ---------------> freq  [kHz] \r\n");
-	printf("Reset SD Card ---------------> mount");
+	printf("Set LDRO --------------------> ldro  [on/off] \r\n");
+	printf("Initialize RFM-95 -----------> init \r\n");
+	printf("Reset SD Card ---------------> mount \r\n");
 }
 
 void SD_init(void)
